@@ -19,7 +19,7 @@
 		 * Log messages to console
 		 */
 		log: function(args) {
-			console.log(args.message);
+			console.log('[wappalyzer ' + args.type + '] ' + args.message);
 		},
 
 		/**
@@ -55,7 +55,7 @@
 					for ( option in defaults ) {
 						localStorage[option] = defaults[option];
 					}
-				} else if ( version !== localStorage['version'] && localStorage['upgradeMessage'] ) {
+				} else if ( version !== localStorage['version'] && parseInt(localStorage['upgradeMessage'], 10) ) {
 					upgraded = true;
 				}
 
@@ -192,8 +192,14 @@
 				w.driver.categoryOrder.forEach(function(match) {
 					for ( appName in w.detected[url] ) {
 						w.apps[appName].cats.forEach(function(cat) {
+							var icon = w.apps[appName].icon;
+
 							if ( cat == match && !found ) {
-								chrome.pageAction.setIcon({ tabId: tab.id, path: 'images/icons/' + appName + '.png' });
+								if ( /\.svg$/i.test(icon) ) {
+									icon = 'converted/' + icon + '.png';
+								}
+
+								chrome.pageAction.setIcon({ tabId: tab.id, path: 'images/icons/' + icon });
 
 								found = true;
 							}
@@ -210,7 +216,7 @@
 		 */
 		ping: function() {
 			if ( Object.keys(w.ping.hostnames).length && localStorage['tracking'] ) {
-				w.driver.post(w.config.websiteURL + 'ping/v2/', w.ping);
+				w.driver.post('http://ping.wappalyzer.com/ping/v2/', w.ping);
 
 				w.log('w.driver.ping: ' + JSON.stringify(w.ping));
 

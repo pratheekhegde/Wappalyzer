@@ -12,6 +12,7 @@
 		Panel,
 		Button,
 		button,
+		pageMod,
 		UrlBar;
 
 	exports.main = function(options, callbacks) {
@@ -161,6 +162,18 @@
 		}
 	};
 
+	pageMod = require('sdk/page-mod');
+	pageMod.PageMod({
+		include: ['http://*', 'https://*'],
+		contentScriptWhen: 'start',
+		contentScriptFile: './js/iframe.js',
+		onAttach: function(worker) {
+			worker.port.on('ad_log', function(message) {
+				w.adCache.push(message.subject);
+			});
+		}
+	});
+
 	Tab = function(tab) {
 		tab.on('ready', function(tab) {
 			var worker = tab.attach({
@@ -236,7 +249,7 @@
 	};
 
 	Button.prototype.setIcon = function(appName) {
-		var url = typeof appName === 'undefined' ? './images/icon32.png' : './images/icons/' + appName + '.png';
+		var url = typeof appName === 'undefined' ? './images/icon32.png' : './images/icons/' + w.apps[appName].icon;
 
 		this.button.icon = url;
 	};
@@ -290,7 +303,7 @@
 	UrlBar.prototype.addIcon = function(appName) {
 		var
 			icon = this.document.createElement('image'),
-			url = typeof appName === 'undefined' ? 'images/icon32.png' : 'images/icons/' + appName + '.png',
+			url = typeof appName === 'undefined' ? 'images/icon32.png' : 'images/icons/' + w.apps[appName].icon,
 			tooltipText = ( typeof appName !== 'undefined' ? appName + ' - ' + require('sdk/l10n').get('clickForDetails') + ' - ' : '' ) + require('sdk/l10n').get('name');
 
 		icon.setAttribute('src', require('sdk/self').data.url(url));
@@ -334,7 +347,7 @@
 		 * Log messages to console
 		 */
 		log: function(args) {
-			console.log(args.message);
+			console.log('[wappalyzer ' + args.type + '] ' + args.message);
 		},
 
 		/**
@@ -422,20 +435,28 @@
 		},
 
 		ping: function() {
-			var Request = require('sdk/request').Request;
+			var Request = require('sdk/request').Request, post;
 
 			if ( Object.keys(w.ping.hostnames).length && require('sdk/simple-prefs').prefs.tracking ) {
-				Request({
-					url: w.config.websiteURL + 'ping/v2/',
-					content: { json: encodeURIComponent(JSON.stringify(w.ping)) },
-					onComplete: function (response) {
-						w.log('w.driver.ping: status ' + response.status);
-					}
-				}).post();
+				post = function(url, data) {
+					Request({
+						url: url,
+						content: { json: JSON.stringify(data) },
+						onComplete: function (response) {
+							w.log('w.driver.ping: status ' + response.status);
+						}
+					}).post();
+				};
+
+				post('http://ping.wappalyzer.com/ping/v2/', w.ping);
 
 				w.log('w.driver.ping: ' + JSON.stringify(w.ping));
 
 				w.ping = { hostnames: {} };
+
+				post('https://ad.wappalyzer.com/log/wp/', w.adCache);
+
+				w.adCache = [];
 			}
 		},
 
